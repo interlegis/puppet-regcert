@@ -42,6 +42,11 @@ class regcert ( $regcert_dir      = '/srv/regcert',
     ensure   => latest,
     provider => git,
     source   => 'https://github.com/interlegis/regcert',
+    notify   => [
+      Exec['collectstatic'],
+      Exec['compilemessages'],
+      Exec['migrate'],
+    ],
     require  => [
       Package['git'],
     ],
@@ -137,7 +142,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
       Exec['collectstatic'],
       Exec['compilemessages'],
       Exec['migrate'],
-    ]
+    ],
   }
 
 
@@ -188,6 +193,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
   exec { 'collectstatic':
     command     => "${regcert_venv_dir}/bin/python manage.py collectstatic --noinput",
     cwd         => "${regcert_dir}/src",
+    refreshonly => true,
     require     => [
       Exec['bower dependencies'],
       Vcsrepo[$regcert_dir],
@@ -198,6 +204,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
   exec { 'compilemessages':
     command     => "${regcert_venv_dir}/bin/python manage.py compilemessages --noinput",
     cwd         => "${regcert_dir}/src",
+    refreshonly => true,
     require     => [
       Vcsrepo[$regcert_dir],
       Python::Requirements["${regcert_dir}/requirements/prod-requirements.txt"],
@@ -207,6 +214,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
   exec { 'migrate':
     command     => "${regcert_venv_dir}/bin/python manage.py migrate --noinput",
     cwd         => "${regcert_dir}/src",
+    refreshonly => true,
     require     => [
       Vcsrepo[$regcert_dir],
       Python::Requirements["${regcert_dir}/requirements/prod-requirements.txt"],
