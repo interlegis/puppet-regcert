@@ -39,7 +39,8 @@ class regcert ( $regcert_dir      = '/srv/regcert',
 
 
   vcsrepo { $regcert_dir:
-    ensure   => latest,
+    ensure   => present,
+    revision => 'stable/0.1.x',
     provider => git,
     source   => 'https://github.com/interlegis/regcert',
     notify   => [
