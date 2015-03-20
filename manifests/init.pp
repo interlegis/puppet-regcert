@@ -7,7 +7,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
                 $secret_key,
                 $allowed_hosts    = 'localhost',
                 $dbuser           = 'regcert',
-                $dbpw,            
+                $dbpw,
                 $dbhost           = 'localhost',
                 $dbport           = '5432',
                 $dbname           = 'regcert',
@@ -33,7 +33,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
 
   $package_deps = ['git', 'supervisor', 'npm', 'gettext', 'libpq-dev' ]
 
-  package { $package_deps: 
+  package { $package_deps:
     ensure => installed,
   }
 
@@ -62,9 +62,9 @@ class regcert ( $regcert_dir      = '/srv/regcert',
     content => template('regcert/env.erb'),
     require => Vcsrepo[$regcert_dir],
   }
-  
 
-# Bower ######################################################################
+
+# Bower #######################################################################
 
 
   package { 'bower':
@@ -93,7 +93,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
   }
 
 
-# Python #####################################################################
+# Python ######################################################################
 
   if !defined(Class['python']) {
     class { 'python':
@@ -127,16 +127,21 @@ class regcert ( $regcert_dir      = '/srv/regcert',
   }
 
 
-# Supervisor #################################################################
+# Supervisor ##################################################################
 
   supervisor::app { 'regcert':
     command   => "${regcert_dir}/bin/run_regcert",
     directory => $regcert_dir,
-    require   => Vcsrepo[$regcert_dir],
+    require   => [
+      Vcsrepo[$regcert_dir],
+      Exec['collectstatic'],
+      Exec['compilemessages'],
+      Exec['migrate'],
+    ]
   }
 
 
-# NGINX ######################################################################
+# NGINX #######################################################################
 
   file { [ '/var/log/regcert',
            '/var/run/regcert']:
@@ -153,7 +158,6 @@ class regcert ( $regcert_dir      = '/srv/regcert',
     upstream_fail_timeout => 0,
   }
 
-
   nginx::resource::vhost { $regcert_vhost:
     client_max_body_size => '4G',
     access_log           => '/var/log/regcert/regcert-access.log',
@@ -167,7 +171,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
   nginx::resource::location { '/':
     vhost                      => $regcert_vhost,
     location_custom_cfg        => { proxy_redirect => 'off' },
-    location_custom_cfg_append => [ 'if (!-f $request_filename) {', 
+    location_custom_cfg_append => [ 'if (!-f $request_filename) {',
                                     '   proxy_pass http://regcert_app_server;',
                                     '   break;',
                                     ' }'],
@@ -179,4 +183,33 @@ class regcert ( $regcert_dir      = '/srv/regcert',
   }
 
 
+  # Deploy ####################################################################
+
+  exec { 'collectstatic':
+    command     => "${regcert_venv_dir}/bin/python manage.py collectstatic --noinput",
+    cwd         => "${regcert_dir}/src",
+    require     => [
+      Exec['bower dependencies'],
+      Vcsrepo[$regcert_dir],
+      Python::Requirements["${regcert_dir}/requirements/prod-requirements.txt"],
+    ],
+  }
+
+  exec { 'compilemessages':
+    command     => "${regcert_venv_dir}/bin/python manage.py compilemessages --noinput",
+    cwd         => "${regcert_dir}/src",
+    require     => [
+      Vcsrepo[$regcert_dir],
+      Python::Requirements["${regcert_dir}/requirements/prod-requirements.txt"],
+    ],
+  }
+
+  exec { 'migrate':
+    command     => "${regcert_venv_dir}/bin/python manage.py migrate --noinput",
+    cwd         => "${regcert_dir}/src",
+    require     => [
+      Vcsrepo[$regcert_dir],
+      Python::Requirements["${regcert_dir}/requirements/prod-requirements.txt"],
+    ],
+  }
 }
