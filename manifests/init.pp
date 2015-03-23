@@ -11,7 +11,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
                 $dbhost           = 'localhost',
                 $dbport           = '5432',
                 $dbname           = 'regcert',
- ) {
+  ) {
 
   include supervisor
 
@@ -47,6 +47,8 @@ class regcert ( $regcert_dir      = '/srv/regcert',
       Exec['collectstatic'],
       Exec['compilemessages'],
       Exec['migrate'],
+      Python::Requirements["${regcert_dir}/requirements/prod-requirements.txt"],
+      Service['supervisor'],
     ],
     require  => [
       Package['git'],
@@ -143,6 +145,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
       Exec['collectstatic'],
       Exec['compilemessages'],
       Exec['migrate'],
+      Python::Requirements["${regcert_dir}/requirements/prod-requirements.txt"],
     ],
   }
 
@@ -203,7 +206,7 @@ class regcert ( $regcert_dir      = '/srv/regcert',
   }
 
   exec { 'compilemessages':
-    command     => "${regcert_venv_dir}/bin/python manage.py compilemessages --noinput",
+    command     => "${regcert_venv_dir}/bin/python manage.py compilemessages",
     cwd         => "${regcert_dir}/src",
     refreshonly => true,
     require     => [
@@ -220,5 +223,12 @@ class regcert ( $regcert_dir      = '/srv/regcert',
       Vcsrepo[$regcert_dir],
       Python::Requirements["${regcert_dir}/requirements/prod-requirements.txt"],
     ],
+  }
+
+  service { 'supervisor':
+    ensure => 'running',
+    refreshonly => true,
+    restart => 'supervisorctl restart regcert',
+    require => Supervisor::App['regcert']
   }
 }
