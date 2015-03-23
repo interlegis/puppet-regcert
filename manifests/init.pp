@@ -227,7 +227,6 @@ class regcert ( $regcert_dir      = '/srv/regcert',
 
   service { 'supervisor':
     ensure => 'running',
-    refreshonly => true,
     restart => 'supervisorctl restart regcert',
     require => Supervisor::App['regcert']
   }
